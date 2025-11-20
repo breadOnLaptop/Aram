@@ -28,11 +28,11 @@ export const registerUser = async (req, res) => {
     }
     let existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ email: 'Email already exists' });
+      return res.status(200).json({ok: false, email: 'Email already exists' });
     }
     existingUser = await User.findOne({ mobile });
     if (existingUser) {
-      return res.status(400).json({ mobile: 'Mobile no already used' });
+      return res.status(200).json({ok:false, mobile: 'Mobile Number already used' });
     }
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);

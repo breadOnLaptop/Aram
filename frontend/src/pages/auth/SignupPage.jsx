@@ -20,7 +20,7 @@ const SignupPage = () => {
   const [newErrors, setNewErrors] = useState({});
   const [profilePic, setProfilePic] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
-  const { isSigningUp , signup }  =useAuthStore();
+  const { isSigningUp, signup } = useAuthStore();
 
   const navigate = useNavigate();
 
@@ -80,21 +80,20 @@ const SignupPage = () => {
       data.delete("confirmPassword");
 
       const response = await signup(data);
-      if(response.ok){
-      navigate('/login');
-      }
-      else if(response.email){
-          setNewErrors((prev)=> ({...prev,email : response.email}));
-      }
-      else if(response.mobile){
-          setNewErrors((prev)=> ({...prev,mobile : response.mobile}));
-      }
-      else{
-        setNewErrors((prev)=> ({...prev,message : response.message}));
+
+      if (response.ok) {
+        navigate("/login");
+      } else if (response.email) {
+        setNewErrors(prev => ({ ...prev, email: response.email }));
+      } else if (response.mobile) {
+        setNewErrors(prev => ({ ...prev, mobile: response.mobile }));
+      } else {
+        setNewErrors(prev => ({ ...prev, message: response.message }));
       }
 
+
     } catch (err) {
-      console.error(err);
+      setNewErrors((prev) => ({ ...prev, message: err.message }));
     }
   };
   return (
@@ -151,12 +150,12 @@ const SignupPage = () => {
               required
               className="w-full rounded-[var(--corner-md)] border border-[var(--clr-border)] bg-[var(--clr-bg-alt)] px-4 py-3 text-[var(--clr-text-main)] placeholder-[var(--clr-text-subtle)] focus:border-[var(--clr-primary-main)] focus:outline-none focus:ring-2 focus:ring-[var(--clr-emerald-main)]"
             />
-            
-            {newErrors.email && <ErrorMessage message={newErrors.email}/>}
-            </div>
 
-            {/* Mobile */}
-            <div className="relative col-span-1">
+            {newErrors.email && <ErrorMessage message={newErrors.email} />}
+          </div>
+
+          {/* Mobile */}
+          <div className="relative col-span-1">
             <input
               type="tel"
               name="mobile"
@@ -166,10 +165,10 @@ const SignupPage = () => {
               required
               className="w-full rounded-[var(--corner-md)] border border-[var(--clr-border)] bg-[var(--clr-bg-alt)] px-4 py-3 text-[var(--clr-text-main)] placeholder-[var(--clr-text-subtle)] focus:border-[var(--clr-primary-main)] focus:outline-none focus:ring-2 focus:ring-[var(--clr-emerald-main)]"
             />
-            {newErrors.mobile && <ErrorMessage message={newErrors.mobile}/>}            
-</div>
-            {/* Age */}
-            <div className="relative col-span-1">
+            {newErrors.mobile && <ErrorMessage message={newErrors.mobile} />}
+          </div>
+          {/* Age */}
+          <div className="relative col-span-1">
             <input
               type="number"
               name="age"
@@ -179,14 +178,14 @@ const SignupPage = () => {
               required
               className="w-full rounded-[var(--corner-md)] border border-[var(--clr-border)] bg-[var(--clr-bg-alt)] px-4 py-3 text-[var(--clr-text-main)] placeholder-[var(--clr-text-subtle)] focus:border-[var(--clr-primary-main)] focus:outline-none focus:ring-2 focus:ring-[var(--clr-emerald-main)]"
             />
-            
-            {newErrors.age && <ErrorMessage message={newErrors.age}/>}
-          
-            </div>
 
-            {/* Password */}
-            <div className="relative col-span-1">
-              <div className="relative">
+            {newErrors.age && <ErrorMessage message={newErrors.age} />}
+
+          </div>
+
+          {/* Password */}
+          <div className="relative col-span-1">
+            <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
                 name="password"
@@ -208,43 +207,43 @@ const SignupPage = () => {
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
-              </div>
-            {newErrors.password && <ErrorMessage message={newErrors.password}/>}
             </div>
+            {newErrors.password && <ErrorMessage message={newErrors.password} />}
+          </div>
 
-            {/* Confirm Password */}
-            <div className="col-span-1">
-              <input
-                type="password"
-                name="confirmPassword"
-                placeholder="Confirm Password"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                onCopy={handleBlockPaste}
-                onPaste={handleBlockPaste}
-                required
-                className="w-full rounded-[var(--corner-md)] border border-[var(--clr-border)] 
+          {/* Confirm Password */}
+          <div className="col-span-1">
+            <input
+              type="password"
+              name="confirmPassword"
+              placeholder="Confirm Password"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              onCopy={handleBlockPaste}
+              onPaste={handleBlockPaste}
+              required
+              className="w-full rounded-[var(--corner-md)] border border-[var(--clr-border)] 
                 bg-[var(--clr-bg-alt)] px-4 py-3 text-[var(--clr-text-main)] 
                 placeholder-[var(--clr-text-subtle)] focus:border-[var(--clr-primary-main)] 
                 focus:outline-none focus:ring-2 focus:ring-[var(--clr-emerald-main)]"
-              />
-              
-            {newErrors.confirmPassword && <ErrorMessage message={newErrors.confirmPassword}/>}
-            </div>
+            />
+
+            {newErrors.confirmPassword && <ErrorMessage message={newErrors.confirmPassword} />}
+          </div>
 
 
-            <div>
-              <label className="mb-1 block text-sm font-medium text-[var(--clr-text-main)]">
-                Profile Picture
-              </label>
-            </div>
-            <div className="col-span-2 text-sm text-[var(--clr-text-subtle)] mb-1">
-              {formData.role === "lawyer"
-                ? "Please upload a profile picture. "
-                : "Optional for normal users. "}
-                (MAX FILE SIZE 5 MB)
-            </div>
-            <div className="relative col-span-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-[var(--clr-text-main)]">
+              Profile Picture
+            </label>
+          </div>
+          <div className="col-span-2 text-sm text-[var(--clr-text-subtle)] mb-1">
+            {formData.role === "lawyer"
+              ? "Please upload a profile picture. "
+              : "Optional for normal users. "}
+            (MAX FILE SIZE 5 MB)
+          </div>
+          <div className="relative col-span-2">
             <input
               type="file"
               name="profilePic"
@@ -258,31 +257,31 @@ const SignupPage = () => {
       file:text-[var(--clr-text-inverse)] file:cursor-pointer 
       hover:file:bg-[var(--clr-primary-accent)]"
             />
-            {newErrors.profilePic && <ErrorMessage message={newErrors.profilePic}/>}
+            {newErrors.profilePic && <ErrorMessage message={newErrors.profilePic} />}
           </div>
 
 
-            {/* User Type */}
-            <select
-              name="role"
-              value={formData.role}
-              onChange={handleChange}
-              className="w-full col-span-2 rounded-[var(--corner-md)] border border-[var(--clr-border)] bg-[var(--clr-bg-alt)] px-4 py-3 text-[var(--clr-text-main)] focus:border-[var(--clr-primary-main)] focus:outline-none focus:ring-2 focus:ring-[var(--clr-emerald-main)]"
-            >
-              <option value="user">Normal User</option>
-              <option value="lawyer">Lawyer</option>
-            </select>
+          {/* User Type */}
+          <select
+            name="role"
+            value={formData.role}
+            onChange={handleChange}
+            className="w-full col-span-2 rounded-[var(--corner-md)] border border-[var(--clr-border)] bg-[var(--clr-bg-alt)] px-4 py-3 text-[var(--clr-text-main)] focus:border-[var(--clr-primary-main)] focus:outline-none focus:ring-2 focus:ring-[var(--clr-emerald-main)]"
+          >
+            <option value="user">Normal User</option>
+            <option value="lawyer">Lawyer</option>
+          </select>
 
-            <div className="relative col-span-2">
-              {newErrors.message && <ErrorMessage message={newErrors.message}/>}
-            </div>
-            {/* Submit Button */}
-            <button
-              type="submit"
-              className="col-span-2 mt-4 rounded-[var(--corner-md)] bg-[var(--clr-primary-main)] px-4 py-3 font-medium text-[var(--clr-text-inverse)] shadow-[var(--shadow-soft)] transition hover:bg-[var(--clr-primary-accent)]"
-            >
-              Sign Up
-            </button>
+          <div className="relative col-span-2">
+            {newErrors.message && <ErrorMessage message={newErrors.message} />}
+          </div>
+          {/* Submit Button */}
+          <button
+            type="submit"
+            className="col-span-2 mt-4 rounded-[var(--corner-md)] bg-[var(--clr-primary-main)] px-4 py-3 font-medium text-[var(--clr-text-inverse)] shadow-[var(--shadow-soft)] transition hover:bg-[var(--clr-primary-accent)]"
+          >
+            Sign Up
+          </button>
         </form>
 
         {/* Login Link */}

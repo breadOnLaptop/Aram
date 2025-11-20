@@ -22,7 +22,6 @@ const VerticalNavbar = () => {
     { name: "Aram AI", path: "/chat", icon: <Bot size={22} /> },
     { name: "Lawyer", path: "/lawyer", icon: <GraduationCap size={22} /> },
     { name: "Contacts", path: "/contact", icon: <Users size={22} /> },
-    { name: "Settings", path: "/settings", icon: <Settings size={22} /> },
   ];
 
   return (

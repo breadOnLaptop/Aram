@@ -3,7 +3,6 @@ import { redirect } from "react-router-dom";
 import { socketManager } from "../utils/SocketManager";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
-console.log("Using BACKEND_URL:", BACKEND_URL);
 
 export const useAuthStore = create((set, get) => ({
   // ===========================
@@ -128,13 +127,12 @@ export const useAuthStore = create((set, get) => ({
       };
 
       const res = await fetch(`${BACKEND_URL}/api/users/register`, options);
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || "Signup failed");
+      const data = await res.json();
+      if (!data.ok) return data;
 
       alert("Sign-up successful! Please login.");
       return data;
     } catch (err) {
-      console.error("🚨 Signup error:", err);
       throw err;
     } finally {
       set({ isSigningUp: false });
