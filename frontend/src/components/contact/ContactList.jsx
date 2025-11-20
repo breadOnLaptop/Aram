@@ -28,7 +28,7 @@ const ContactList = () => {
             }
         };
         fetchContacts();
-    }, [authUser?._id]);
+    }, [authUser?._id, getContacts, contacts]);
 
     // Filter contacts based on search
     const filteredContacts = searchUser.trim()

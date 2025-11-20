@@ -4,6 +4,7 @@ import InputMessage from "./InputMessage";
 import { Info, MoreHorizontal, Trash2 } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
 import NoChatContainer from "./NoChatContainer";
+import { socketManager } from "../../utils/SocketManager";
 
 const ChatContainer = () => {
     const {
@@ -58,12 +59,12 @@ const ChatContainer = () => {
         };
 
         // Subscribe to socket events via store
-        window.socketManager?.on("receiveMessage", handleReceiveMessage);
-        window.socketManager?.on("userTyping", handleUserTyping);
+        socketManager?.on("receiveMessage", handleReceiveMessage);
+        socketManager?.on("userTyping", handleUserTyping);
 
         return () => {
-            window.socketManager?.off("receiveMessage", handleReceiveMessage);
-            window.socketManager?.off("userTyping", handleUserTyping);
+            socketManager?.off("receiveMessage", handleReceiveMessage);
+            socketManager?.off("userTyping", handleUserTyping);
         };
     }, [socketConnected, currentContact, authUser._id]);
 
@@ -79,6 +80,8 @@ const ChatContainer = () => {
                         delivered: true, 
                         read: true 
                     });
+                    messages[i].read = true; // Update local state
+                    messages[i].delivered = true;
                 }
             }
         };

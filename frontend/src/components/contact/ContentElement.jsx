@@ -1,7 +1,14 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 
 const ContentElement = ({ contact, onClick, isActive }) => {
+
+    useEffect(() => {
+        // Preload contact user image
+        const img = new Image();
+        img.src = contact.contactUser?.profilePic || '/images/user.jpg';
+    }, [contact.contactUser]);
+
     const { authUser } = useAuthStore();
     const contactUser = contact.contactUser || {};
     const lastMessage = contact.lastMessage?.content || '';
