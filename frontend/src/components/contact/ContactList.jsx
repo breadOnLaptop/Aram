@@ -37,7 +37,7 @@ const ContactList = () => {
             }
         };
         fetchContacts();
-    }, [authUser?._id]);
+    }, [authUser?._id,]);
 
     // Listen for real-time message updates
     useEffect(() => {

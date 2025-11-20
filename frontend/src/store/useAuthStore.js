@@ -215,7 +215,7 @@ export const useAuthStore = create((set, get) => ({
     });
     
     // Emit via socket for real-time delivery
-    socketManager.sendMessage(messageData);
+    socketManager.sendMessage(message);
     
     return message;
   },
