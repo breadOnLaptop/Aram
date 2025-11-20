@@ -7,6 +7,23 @@ import asyncHandler from "express-async-handler";
 // ======================================================
 // 🧩 Create Contact
 // ======================================================
+
+const getContact = asyncHandler(async (req, res) => {
+  const { user1, user2 } = req.query;
+  
+  const data = Contact.findOne({
+    $or: [
+      { user1: user1Id, user2: user2Id },
+      { user1: user2Id, user2: user1Id },
+    ],
+    }).populate([
+      { path: "user1", select: "firstName lastName email profilePic" },
+    { path: "user2", select: "firstName lastName email profilePic" },
+    ]);
+  res.status(201).json(data);
+
+});
+
 const createContact = asyncHandler(async (req, res) => {
   const { user1, user2 } = req.body;
 
@@ -24,10 +41,26 @@ const createContact = asyncHandler(async (req, res) => {
       { user1: user1Id, user2: user2Id },
       { user1: user2Id, user2: user1Id },
     ],
-  });
+  }).populate([
+    { path: "user1", select: "firstName lastName email profilePic" },
+    { path: "user2", select: "firstName lastName email profilePic" },
+  ]);
 
   if (existingContact) {
-    return res.status(200).json(existingContact);
+      const otherUser = existingContact.user1._id.toString() === user1 ? existingContact.user2 : existingContact.user1;
+
+    return res.status(200).json({
+      _id: existingContact._id,
+      contactUser: {
+        _id: otherUser._id,
+        firstName: otherUser.firstName,
+        lastName: otherUser.lastName,
+        email: otherUser.email,
+        profilePic: otherUser.profilePic,
+      },
+      lastMessage: existingContact?.lastMessage || null,
+      updatedAt: existingContact.updatedAt,
+    });
   }
 
   const newContact = await Contact.create({
@@ -142,4 +175,4 @@ const updateLastMessage = asyncHandler(async (req, res) => {
   res.status(200).json(populated);
 });
 
-export { createContact, getContacts, deleteContact, updateLastMessage };
+export { createContact, getContacts, deleteContact, updateLastMessage, getContact };

@@ -50,7 +50,7 @@ const ChatContainer = () => {
     useEffect(() => {
         const area = document.querySelector(".message-area");
         if (area) area.scrollTop = area.scrollHeight;
-    }, [messages]);
+    }, []);
 
     const deleteMsg = async () => {
         if (!selectedMessageId) return;
@@ -97,8 +97,8 @@ const ChatContainer = () => {
 
                     <div className="flex flex-col">
                         <div className="font-semibold text-sm sm:text-base">
-                            {currentContact?.contactUser.firstName}{" "}
-                            {currentContact?.contactUser.lastName}
+                            {currentContact?.contactUser?.firstName}{" "}
+                            {currentContact?.contactUser?.lastName}
                         </div>
 
                         <div className="text-[10px] text-foreground/70">

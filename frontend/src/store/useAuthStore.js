@@ -258,6 +258,12 @@ export const useAuthStore = create((set, get) => ({
   return res;
 },
 
+  getContact: async (user1, user2) => {
+    return await get().fetchWithAuth(
+      `${BACKEND_URL}/api/contacts/get-contact?user1=${user1}&user2=${user2}`
+    );
+  },
+
 
   updateContactLastMessage: (contactId, lastMessage) =>
   set((state) => ({

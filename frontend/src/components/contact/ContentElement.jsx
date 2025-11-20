@@ -1,9 +1,10 @@
 import React from 'react';
+import { useAuthStore } from '@/store/useAuthStore';
 
 const ContentElement = ({ contact, onClick, isActive }) => {
     const contactUser = contact.contactUser || {};
-    const lastMessage = contact.lastMessage.content || '';
-
+    const lastMessage = contact?.lastMessage?.content || '';
+    const { authUser } = useAuthStore();
     return (
         <div
             className={`p-4 w-full flex gap-2 items-center relative  
@@ -40,7 +41,7 @@ const ContentElement = ({ contact, onClick, isActive }) => {
                 </div>
                 <div>
                     {
-                        contact.lastMessage && !contact.lastMessage.read
+                        contact.lastMessage && contact.lastMessage.receiverId==authUser._id &&  !contact.lastMessage.read
                             ? <span className="bg-emerald-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">New</span>
                             : null
                     }

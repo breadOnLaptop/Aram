@@ -1,9 +1,35 @@
 import { AudioWaveform } from 'lucide-react';
-import React from 'react'
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '@/store/useAuthStore';
 
 const LawyersItem = ({ lawyer }) => {
+  const navigate = useNavigate();
+  const { authUser, createContact, setCurrentContact } = useAuthStore();
+  const [isCreating, setIsCreating] = useState(false);
+
   if (!lawyer) return null;
+
+  const handleContact = async () => {
+    try {
+      setIsCreating(true);
+      
+      // Create or get existing contact
+      const contact = await createContact(authUser._id, lawyer._id);  
+      console.log('Contact created or retrieved:', contact);
+      
+      
+      // Set as current contact and navigate
+      setCurrentContact(contact);
+      navigate('/contact');
+      
+    } catch (error) {
+      console.error('Error creating contact:', error);
+      alert('Failed to create contact. Please try again.');
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   return (
     <div className='bg-muted/30 rounded-lg flex flex-col gap-4 px-6 py-6 border-1'>
@@ -41,23 +67,24 @@ const LawyersItem = ({ lawyer }) => {
         Rating :
         <p className='text-sm'>
           {lawyer.rating?.count > 0
-            ? "⭐".repeat(Math.round(lawyer.rating.reviews?.reduce((a, b) => a + b, 0) / lawyer.rating.count))
+            ? "⭐".repeat(Math.round(lawyer.rating.reviews?.reduce((a, b) => a + b.rate, 0) / lawyer.rating.count))
             : "None"}
         </p>
       </div>
 
       {/* Contact Button */}
-      <Link to="/contact" state={{ lawyerId: lawyer._id }}>
       <div className='flex justify-end w-full'>
-        
-        <button className='px-4 flex gap-3 items-center text-white border border-border hover:scale-105 transition-all duration-150 py-2 bg-gradient-to-r from-emerald-500 to-green-700 rounded-xl'>
-          Contact
+        <button 
+          onClick={handleContact}
+          disabled={isCreating}
+          className='px-4 flex gap-3 items-center text-white border border-border hover:scale-105 transition-all duration-150 py-2 bg-gradient-to-r from-emerald-500 to-green-700 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed'
+        >
+          {isCreating ? 'Creating...' : 'Contact'}
           <AudioWaveform className='size-4' />
         </button>
       </div>
-      </Link>
     </div>
-  )
-}
+  );
+};
 
-export default LawyersItem
+export default LawyersItem;
