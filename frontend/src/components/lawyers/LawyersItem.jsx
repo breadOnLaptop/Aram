@@ -1,33 +1,27 @@
 import { AudioWaveform } from 'lucide-react';
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/useAuthStore';
 
 const LawyersItem = ({ lawyer }) => {
   const navigate = useNavigate();
   const { authUser, createContact, setCurrentContact } = useAuthStore();
-  const [isCreating, setIsCreating] = useState(false);
 
   if (!lawyer) return null;
 
   const handleContact = async () => {
     try {
-      setIsCreating(true);
-      
       // Create or get existing contact
-      const contact = await createContact(authUser._id, lawyer._id);  
-      console.log('Contact created or retrieved:', contact);
+      const contact = await createContact(authUser._id, lawyer._id);
       
-      
-      // Set as current contact and navigate
+      // Set as current contact
       setCurrentContact(contact);
-      navigate('/contact');
       
+      // Navigate to contact page
+      navigate('/contact');
     } catch (error) {
       console.error('Error creating contact:', error);
-      alert('Failed to create contact. Please try again.');
-    } finally {
-      setIsCreating(false);
+      alert('Failed to start conversation. Please try again.');
     }
   };
 
@@ -76,10 +70,9 @@ const LawyersItem = ({ lawyer }) => {
       <div className='flex justify-end w-full'>
         <button 
           onClick={handleContact}
-          disabled={isCreating}
-          className='px-4 flex gap-3 items-center text-white border border-border hover:scale-105 transition-all duration-150 py-2 bg-gradient-to-r from-emerald-500 to-green-700 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed'
+          className='px-4 flex gap-3 items-center text-white border border-border hover:scale-105 transition-all duration-150 py-2 bg-gradient-to-r from-emerald-500 to-green-700 rounded-xl'
         >
-          {isCreating ? 'Creating...' : 'Contact'}
+          Contact
           <AudioWaveform className='size-4' />
         </button>
       </div>

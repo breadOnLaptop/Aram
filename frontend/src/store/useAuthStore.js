@@ -1,8 +1,7 @@
 import { create } from "zustand";
 import { redirect } from "react-router-dom";
-import { socketManager } from "../utils/SocketManager"; // make sure socketManager.js exists
+import { socketManager } from "../utils/SocketManager";
 
-// Define backend base URL here directly
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 console.log("Using BACKEND_URL:", BACKEND_URL);
 
@@ -29,7 +28,7 @@ export const useAuthStore = create((set, get) => ({
   setShowMyProfile: () => set((s) => ({ showMyProfile: !s.showMyProfile })),
   setCurrentChatId: (chatId) => set({ currentChatId: chatId }),
   setCurrentContact: (contact) => set({ currentContact: contact }),
-  setContacts: (data) => set({contacts: data}),
+  setContacts: (data) => set({ contacts: data }),
 
   // ===========================
   // 🔌 SOCKET CONNECTION
@@ -39,13 +38,15 @@ export const useAuthStore = create((set, get) => ({
     const user = get().authUser;
     if (!token || !user) return;
 
+    // Get all contact user IDs for presence tracking
+    const contactIds = get().contacts.map(c => c.contactUser._id);
+
     // Connect socket with handlers
     socketManager.connect({
       token,
       userId: user._id,
-      contacts: user.chats?.flatMap((c) => c.participants) || [],
+      contacts: contactIds,
       onEvents: {
-        // Online user updates
         getOnlineUsers: (userIds) => set({ onlineUsers: userIds }),
         userOnline: (userId) =>
           set((state) => ({
@@ -56,11 +57,12 @@ export const useAuthStore = create((set, get) => ({
             onlineUsers: state.onlineUsers.filter((id) => id !== userId),
           })),
 
-        // Real-time message & typing updates
-        receiveMessage: (msg) => {
+        receiveMessage: async (msg) => {
           console.log("📩 New message received:", msg);
-          getContacts();
-          // Optional: store in message state if you maintain one
+          // Refresh contacts to update last message
+          if (get().authUser?._id) {
+            await get().getContacts(get().authUser._id);
+          }
         },
         userTyping: ({ contactId, isTyping }) => {
           console.log(`💬 ${contactId} is ${isTyping ? "typing..." : "idle"}`);
@@ -69,11 +71,15 @@ export const useAuthStore = create((set, get) => ({
     });
 
     set({ socketConnected: true });
+    
+    // Expose socketManager globally for components
+    window.socketManager = socketManager;
   },
 
   disconnectSocket: () => {
     socketManager.disconnect();
     set({ socketConnected: false, onlineUsers: [] });
+    window.socketManager = null;
   },
 
   emitSocketEvent: (event, data) => {
@@ -93,12 +99,16 @@ export const useAuthStore = create((set, get) => ({
       const result = await res.json();
       result.ok = res.ok;
       if (!res.ok) throw new Error(result.message || "Login failed");
-      console.log("🚀 Login successful:", result.token);
+      
       localStorage.setItem("authToken", result.token);
-      set({ isLoggingIn: true });
-      set({ authUser: result.user });
+      set({ isLoggingIn: true, authUser: result.user });
+      
+      // Fetch contacts before connecting socket
+      if (result.user._id) {
+        await get().getContacts(result.user._id);
+      }
+      
       get().connectSocket();
-
       return result;
     } catch (err) {
       console.error("🚨 Login error:", err);
@@ -144,6 +154,12 @@ export const useAuthStore = create((set, get) => ({
 
       const profile = await res.json();
       set({ authUser: profile });
+      
+      // Fetch contacts before connecting socket
+      if (profile._id) {
+        await get().getContacts(profile._id);
+      }
+      
       get().connectSocket();
     } catch (err) {
       console.error("🚨 Auth check error:", err);
@@ -156,7 +172,13 @@ export const useAuthStore = create((set, get) => ({
   logout: () => {
     get().disconnectSocket();
     localStorage.removeItem("authToken");
-    set({ authUser: null, onlineUsers: [], currentChatId: null });
+    set({ 
+      authUser: null, 
+      onlineUsers: [], 
+      currentChatId: null,
+      currentContact: null,
+      contacts: []
+    });
   },
 
   // ===========================
@@ -182,17 +204,19 @@ export const useAuthStore = create((set, get) => ({
   // 💬 MESSAGES
   // ===========================
   getContactMessages: async (contactId) => {
-  const res = await get().fetchWithAuth(`${BACKEND_URL}/api/messages/${contactId}`);
-  return res; // DO NOT setContacts here
-},
-
+    const res = await get().fetchWithAuth(`${BACKEND_URL}/api/messages/${contactId}`);
+    return res;
+  },
 
   sendMessage: async (messageData) => {
     const message = await get().fetchWithAuth(`${BACKEND_URL}/api/messages/send`, {
       method: "POST",
       body: JSON.stringify(messageData),
     });
+    
+    // Emit via socket for real-time delivery
     socketManager.sendMessage(messageData);
+    
     return message;
   },
 
@@ -246,32 +270,31 @@ export const useAuthStore = create((set, get) => ({
   // 🧑‍🤝‍🧑 CONTACTS
   // ===========================
   createContact: async (user1, user2) => {
-    return await get().fetchWithAuth(`${BACKEND_URL}/api/contacts`, {
+    const contact = await get().fetchWithAuth(`${BACKEND_URL}/api/contacts`, {
       method: "POST",
       body: JSON.stringify({ user1, user2 }),
     });
+    
+    // Refresh contacts list
+    if (get().authUser?._id) {
+      await get().getContacts(get().authUser._id);
+    }
+    
+    return contact;
   },
 
   getContacts: async (userId) => {
-  const res = await get().fetchWithAuth(`${BACKEND_URL}/api/contacts/${userId}`);
-  set({contacts: res});
-  return res;
-},
-
-  getContact: async (user1, user2) => {
-    return await get().fetchWithAuth(
-      `${BACKEND_URL}/api/contacts/get-contact?user1=${user1}&user2=${user2}`
-    );
+    const res = await get().fetchWithAuth(`${BACKEND_URL}/api/contacts/${userId}`);
+    set({ contacts: res });
+    return res;
   },
 
-
   updateContactLastMessage: (contactId, lastMessage) =>
-  set((state) => ({
-    contacts: state.contacts.map((c) =>
-      c._id === contactId ? { ...c, lastMessage } : c
-    ),
-  })),
-
+    set((state) => ({
+      contacts: state.contacts.map((c) =>
+        c._id === contactId ? { ...c, lastMessage } : c
+      ),
+    })),
 
   deleteContact: async (contactId) => {
     return await get().fetchWithAuth(`${BACKEND_URL}/api/contacts/${contactId}`, {
@@ -306,7 +329,6 @@ export const useAuthStore = create((set, get) => ({
     const formData = new FormData();
     Object.entries(updates).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
-        // 🟢 Detect File or Blob objects and append them as-is
         if (value instanceof File || value instanceof Blob) {
           formData.append(key, value);
         } else if (typeof value === "object") {
@@ -317,7 +339,6 @@ export const useAuthStore = create((set, get) => ({
       }
     });
 
-    console.log("Updating profile with data:", updates);
     const res = await fetch(`${BACKEND_URL}/api/users/updateProfile`, {
       method: "PATCH",
       headers: { Authorization: `Bearer ${token}` },
