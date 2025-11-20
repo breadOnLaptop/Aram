@@ -3,10 +3,19 @@ import ContentElement from './ContentElement';
 import { Search, ArrowBigLeft } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useNavigate } from 'react-router-dom';
+import { socketManager } from '../../utils/SocketManager';
 
 const ContactList = () => {
     const navigate = useNavigate();
-    const { getContacts, authUser, currentContact, setCurrentContact, contacts } = useAuthStore();
+    const { 
+        getContacts, 
+        authUser, 
+        currentContact, 
+        setCurrentContact, 
+        contacts,
+        socketConnected,
+        onlineUsers 
+    } = useAuthStore();
     const [searchUser, setSearchUser] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
@@ -14,7 +23,7 @@ const ContactList = () => {
         setCurrentContact(contact);
     };
 
-    // Fetch contacts only on mount or when authUser changes
+    // Fetch contacts only on mount
     useEffect(() => {
         const fetchContacts = async () => {
             if (!authUser?._id) return;
@@ -28,7 +37,36 @@ const ContactList = () => {
             }
         };
         fetchContacts();
-    }, [authUser?._id, getContacts, contacts]);
+    }, [authUser?._id]);
+
+    // Listen for real-time message updates
+    useEffect(() => {
+        if (!socketConnected) return;
+
+        const handleReceiveMessage = async (msg) => {
+            console.log("📩 ContactList received message:", msg);
+            // Refresh contacts to update last message
+            if (authUser?._id) {
+                await getContacts(authUser._id);
+            }
+        };
+
+        const handleMessageStatusUpdate = async ({ messageId, status }) => {
+            console.log("✓ Message status updated:", messageId, status);
+            // Refresh contacts to update read status
+            if (authUser?._id && status.read) {
+                await getContacts(authUser._id);
+            }
+        };
+
+        socketManager?.on("receiveMessage", handleReceiveMessage);
+        socketManager?.on("messageStatusUpdate", handleMessageStatusUpdate);
+
+        return () => {
+            socketManager?.off("receiveMessage", handleReceiveMessage);
+            socketManager?.off("messageStatusUpdate", handleMessageStatusUpdate);
+        };
+    }, [socketConnected, authUser?._id, getContacts]);
 
     // Filter contacts based on search
     const filteredContacts = searchUser.trim()
@@ -82,6 +120,7 @@ const ContactList = () => {
                             contact={contact}
                             onClick={onContactClick}
                             isActive={currentContact?._id === contact._id}
+                            isOnline={onlineUsers.includes(contact.contactUser._id)}
                         />
                     ))
                 )}

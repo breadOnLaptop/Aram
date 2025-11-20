@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 
-const ContentElement = ({ contact, onClick, isActive }) => {
+const ContentElement = ({ contact, onClick, isActive, isOnline }) => {
 
     useEffect(() => {
         // Preload contact user image
@@ -12,7 +12,30 @@ const ContentElement = ({ contact, onClick, isActive }) => {
     const { authUser } = useAuthStore();
     const contactUser = contact.contactUser || {};
     const lastMessage = contact.lastMessage?.content || '';
-    const isUnread = contact.lastMessage && contact.lastMessage.receiverId==authUser._id && !contact.lastMessage.read;
+    
+    // Check if message is unread - only if current user is the receiver
+    const isUnread = contact.lastMessage && 
+                     contact.lastMessage.receiverId === authUser._id && 
+                     !contact.lastMessage.read;
+
+    // Format last seen time
+    const getLastSeenText = () => { 
+        if (contact.updatedAt) {
+            const lastSeen = new Date(contact.updatedAt);
+            const now = new Date();
+            const diffInMs = now - lastSeen;
+            const diffInMins = Math.floor(diffInMs / 60000);
+            
+            if (diffInMins < 1) return 'Just now';
+            if (diffInMins < 60) return `${diffInMins}m ago`;
+            
+            const diffInHours = Math.floor(diffInMins / 60);
+            if (diffInHours < 24) return `${diffInHours}h ago`;
+            
+            return lastSeen.toLocaleDateString();
+        }
+        return 'Offline';
+    };
 
     return (
         <div
@@ -28,7 +51,10 @@ const ContentElement = ({ contact, onClick, isActive }) => {
                     draggable={false}
                     alt={contactUser.firstName || 'User'}
                 />
-                <div className="size-2 rounded-full absolute bg-green-500 right-0 -bottom-0.5"></div>
+                {/* Online indicator */}
+                <div className={`size-2 rounded-full absolute right-0 -bottom-0.5 ${
+                    isOnline ? 'bg-green-500' : 'bg-gray-400'
+                }`}></div>
             </div>
 
             {/* Details */}
@@ -46,10 +72,13 @@ const ContentElement = ({ contact, onClick, isActive }) => {
             {/* Time & Status */}
             <div className="absolute text-[11px] right-4 opacity-70 top-4 flex flex-col items-end gap-1">
                 <div>
-                    {contact.updatedAt && new Date(contact.updatedAt).toLocaleTimeString([], {
+                    {contact.lastMessage?.createdAt && new Date(contact.lastMessage.createdAt).toLocaleTimeString([], {
                         hour: '2-digit',
                         minute: '2-digit',
                     })}
+                </div>
+                <div className="text-[10px]">
+                    {getLastSeenText()}
                 </div>
                 {isUnread && (
                     <span className="bg-emerald-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">

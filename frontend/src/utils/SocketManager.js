@@ -83,6 +83,7 @@ class SocketManager {
   emit(event, data) {
     if (this.socket?.connected) {
       this.socket.emit(event, data);
+      console.log(`📤 Emitted "${event}":`, data);
     } else {
       console.warn(`⚠️ Tried to emit "${event}" but socket is not connected.`);
     }
@@ -128,7 +129,7 @@ class SocketManager {
 
   /**
    * Send a new message (emits real-time message event)
-   * @param {Object} messageData - { senderId, receiverId, text, chatId, ... }
+   * @param {Object} messageData - { senderId, receiverId, content, contactId, ... }
    */
   sendMessage(messageData) {
     this.emit("sendMessage", messageData);
@@ -146,7 +147,7 @@ class SocketManager {
   /**
    * Notify read receipts or delivery confirmations
    * @param {string} messageId - Message ID
-   * @param {string} status - "delivered" | "read"
+   * @param {string} status - { delivered: boolean, read: boolean }
    */
   updateMessageStatus(messageId, status) {
     this.emit("messageStatusUpdate", { messageId, status });
@@ -159,9 +160,9 @@ class SocketManager {
   _registerDefaultEvents() {
     if (!this.socket) return;
 
-    // Example: log received message
+    // Log received messages
     this.socket.on("receiveMessage", (message) => {
-      console.log("📩 Received message:", message);
+      console.log("📩 Socket received message:", message);
     });
 
     this.socket.on("userTyping", ({ contactId, isTyping }) => {
@@ -174,6 +175,10 @@ class SocketManager {
 
     this.socket.on("userOffline", (userId) => {
       console.log(`🔴 ${userId} went offline`);
+    });
+
+    this.socket.on("messageStatusUpdate", ({ messageId, status }) => {
+      console.log(`✓ Message ${messageId} status updated:`, status);
     });
   }
 }

@@ -16,15 +16,21 @@ const ChatContainer = () => {
         updateMessageStatus,
         updateLastMessage,
         updateContactLastMessage,
-        contacts,
         emitSocketEvent,
-        socketConnected
+        socketConnected,
+        onlineUsers,
+        getContacts,
+        setContacts
     } = useAuthStore();
 
     const [messages, setMessages] = useState([]);
     const [selectedMessageId, setSelectedMessageId] = useState(null);
     const [isTyping, setIsTyping] = useState(false);
     const messageAreaRef = useRef(null);
+
+    // Check if current contact is online
+    const isContactOnline = currentContact?.contactUser?._id && 
+                           onlineUsers.includes(currentContact.contactUser._id);
 
     // Fetch messages when contact changes
     useEffect(() => {
@@ -40,54 +46,91 @@ const ChatContainer = () => {
     useEffect(() => {
         if (!socketConnected) return;
 
-        const handleReceiveMessage = (msg) => {
+        const handleReceiveMessage = async (msg) => {
+            console.log("📩 ChatContainer received message:", msg);
+            
             // Only add if it's for current contact
             if (msg.contactId === currentContact?._id) {
                 setMessages((prev) => [...prev, msg]);
                 
-                // Mark as read if it's from the other person
+                // Mark as read and delivered if it's from the other person
                 if (msg.senderId !== authUser._id) {
-                    updateMessageStatus(msg._id, { delivered: true, read: true });
+                    await updateMessageStatus(msg._id, { delivered: true, read: true });
+                    
+                    // Emit socket event for status update
+                    socketManager?.emit("messageStatusUpdate", {
+                        messageId: msg._id,
+                        status: { delivered: true, read: true }
+                    });
                 }
+            }
+            
+            // Always refresh contacts to update last message
+            if (authUser?._id) {
+                await getContacts(authUser._id);
             }
         };
 
         const handleUserTyping = ({ contactId, isTyping }) => {
-            if (contactId === currentContact?.contactUser._id) {
+            if (contactId === authUser._id && currentContact?.contactUser._id) {
                 setIsTyping(isTyping);
             }
         };
 
-        // Subscribe to socket events via store
+        const handleMessageStatusUpdate = ({ messageId, status }) => {
+            // Update message status in local state
+            setMessages(prev => prev.map(msg => 
+                msg._id === messageId ? { ...msg, ...status } : msg
+            ));
+        };
+
+        // Subscribe to socket events
         socketManager?.on("receiveMessage", handleReceiveMessage);
         socketManager?.on("userTyping", handleUserTyping);
+        socketManager?.on("messageStatusUpdate", handleMessageStatusUpdate);
 
         return () => {
             socketManager?.off("receiveMessage", handleReceiveMessage);
             socketManager?.off("userTyping", handleUserTyping);
+            socketManager?.off("messageStatusUpdate", handleMessageStatusUpdate);
         };
     }, [socketConnected, currentContact, authUser._id]);
 
-    // Mark messages as read
+    // Mark messages as read when viewing
     useEffect(() => {
         if (!messages.length) return;
 
         const markUnreadMessages = async () => {
+            let fetch = false;
             for (let i = messages.length - 1; i >= 0; i--) {
                 if (messages[i].read === true) break;
                 if (messages[i].senderId !== authUser._id) {
+                    fetch = true;
                     await updateMessageStatus(messages[i]._id, { 
                         delivered: true, 
                         read: true 
                     });
-                    messages[i].read = true; // Update local state
+                    
+                    // Emit socket event
+                    socketManager?.emit("messageStatusUpdate", {
+                        messageId: messages[i]._id,
+                        status: { delivered: true, read: true }
+                    });
+                    
+                    messages[i].read = true;
                     messages[i].delivered = true;
                 }
+            }
+
+            
+            // Refresh contacts to clear "New" badge
+            if (fetch && authUser?._id) {
+                await getContacts(authUser._id);
             }
         };
 
         markUnreadMessages();
-    }, [messages]);
+    }, [messages.length, currentContact?._id]);
 
     // Auto scroll to bottom
     useEffect(() => {
@@ -122,8 +165,12 @@ const ChatContainer = () => {
             await updateLastMessage(currentContact._id, sentMessage._id);
             updateContactLastMessage(currentContact._id, sentMessage);
 
-            // Add to local state (socket will handle receiver's side)
-            setMessages((prev) => [...prev, sentMessage]);
+            // Add to local state
+            
+            // Refresh contacts
+            if (authUser?._id) {
+                await getContacts(authUser._id);
+            }
         } catch (error) {
             console.error("Failed to send message:", error);
             alert("Failed to send message. Please try again.");
@@ -140,6 +187,26 @@ const ChatContainer = () => {
         }
     };
 
+    // Get last seen text
+    const getLastSeenText = () => {
+        if (isContactOnline) return 'Online';
+        if (currentContact?.updatedAt) {
+            const lastSeen = new Date(currentContact.updatedAt);
+            const now = new Date();
+            const diffInMs = now - lastSeen;
+            const diffInMins = Math.floor(diffInMs / 60000);
+            
+            if (diffInMins < 1) return 'Just now';
+            if (diffInMins < 60) return `${diffInMins}m ago`;
+            
+            const diffInHours = Math.floor(diffInMins / 60);
+            if (diffInHours < 24) return `${diffInHours}h ago`;
+            
+            return lastSeen.toLocaleDateString();
+        }
+        return 'Offline';
+    };
+
     if (!currentContact) return <NoChatContainer />;
 
     return (
@@ -147,11 +214,17 @@ const ChatContainer = () => {
             {/* Header */}
             <div className="py-3 px-4 flex justify-between items-center border-b-1 border-overlay">
                 <div className="flex gap-3 items-center">
-                    <img
-                        src={currentContact?.contactUser?.profilePic || "/images/user.jpg"}
-                        className="size-12 rounded-xl object-cover"
-                        alt="User"
-                    />
+                    <div className="relative">
+                        <img
+                            src={currentContact?.contactUser?.profilePic || "/images/user.jpg"}
+                            className="size-12 rounded-xl object-cover"
+                            alt="User"
+                        />
+                        {/* Online indicator */}
+                        <div className={`size-2.5 rounded-full absolute right-0 bottom-0 border-2 border-background ${
+                            isContactOnline ? 'bg-green-500' : 'bg-gray-400'
+                        }`}></div>
+                    </div>
 
                     <div className="flex flex-col">
                         <div className="font-semibold text-sm sm:text-base">
@@ -163,13 +236,9 @@ const ChatContainer = () => {
                             {isTyping ? (
                                 <span className="text-emerald-500">typing...</span>
                             ) : (
-                                <>
-                                    last seen{" "}
-                                    {new Date(currentContact.updatedAt).toLocaleTimeString([], {
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                    })}
-                                </>
+                                <span className={isContactOnline ? 'text-emerald-500 font-medium' : ''}>
+                                    {getLastSeenText()}
+                                </span>
                             )}
                         </div>
                     </div>

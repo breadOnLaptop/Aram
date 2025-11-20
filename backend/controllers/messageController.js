@@ -1,30 +1,39 @@
 import Message from "../models/messageModel.js";
+import Contact from "../models/contactModel.js";
 import asyncHandler from "express-async-handler";
-import mongoose from "mongoose";
 
+// ======================================================
+// 📤 Send Message
+// ======================================================
 const sendMessage = asyncHandler(async (req, res) => {
   const { contactId, senderId, receiverId, content, fileUrl } = req.body;
-  console.log("Received message data:", req.body);
-    if (!contactId || !senderId || !receiverId || !content) {
-        res.status(400);
-        throw new Error("Please provide all required fields");
-    }
-    
-    const message = await Message.create({
-        contactId: new mongoose.Types.ObjectId(contactId),
-        senderId: new mongoose.Types.ObjectId(senderId),
-        receiverId: new mongoose.Types.ObjectId(receiverId),
-        content,
-        fileUrl,
-    });
-    if (message) {
-        res.status(201).json(message);
-    } else {
-        res.status(400);
-        throw new Error("Failed to send message");
-    }
+
+  if (!contactId || !senderId || !receiverId) {
+    res.status(400);
+    throw new Error("Contact ID, Sender ID, and Receiver ID are required");
+  }
+
+  const newMessage = await Message.create({
+    contactId,
+    senderId,
+    receiverId,
+    content: content || "",
+    fileUrl: fileUrl || [],
+    delivered: false,
+    read: false,
+  });
+
+  // Update contact's last message
+  await Contact.findByIdAndUpdate(contactId, {
+    lastMessage: newMessage._id,
+  });
+
+  res.status(201).json(newMessage);
 });
 
+// ======================================================
+// 📩 Get Messages for a Contact
+// ======================================================
 const getMessages = asyncHandler(async (req, res) => {
   const { contactId } = req.params;
 
@@ -33,48 +42,73 @@ const getMessages = asyncHandler(async (req, res) => {
     throw new Error("Contact ID is required");
   }
 
-  const contactObjectId = new mongoose.Types.ObjectId(contactId);
-
-  // Fetch messages sorted oldest → newest
-  const messages = await Message.find({ contactId: contactObjectId })
-    .select("senderId content read delivered fileUrl createdAt") // ✅ select only what you need
-    .sort({ createdAt: 1 });
+  const messages = await Message.find({ contactId }).sort({ createdAt: 1 });
 
   res.status(200).json(messages);
 });
 
+// ======================================================
+// 🗑️ Delete Message
+// ======================================================
 const deleteMessage = asyncHandler(async (req, res) => {
-    const { messageId } = req.params;
-    if (!messageId) {
-        res.status(400);
-        throw new Error("Message ID is required");
-    }
-    const message = await Message.findByIdAndDelete(messageId);
-    if (message) {
-        res.status(200).json({ message: "Message deleted successfully" });
-    } else {
-        res.status(404);
-        throw new Error("Message not found");
-    }
+  const { messageId } = req.params;
+
+  if (!messageId) {
+    res.status(400);
+    throw new Error("Message ID is required");
+  }
+
+  const message = await Message.findByIdAndDelete(messageId);
+
+  if (!message) {
+    res.status(404);
+    throw new Error("Message not found");
+  }
+
+  res.status(200).json({ message: "Message deleted successfully" });
 });
 
+// ======================================================
+// ✓ Update Message Status (Read/Delivered)
+// ======================================================
 const updateMessageStatus = asyncHandler(async (req, res) => {
-    const { messageId } = req.params;
-    const { read, delivered } = req.body;
-    if (!messageId) {
-        res.status(400);
-        throw new Error("Message ID is required");
-    }       
-    const message = await Message.findById(messageId);
-    if (message) {
-        message.read = read !== undefined ? read : message.read;
-        message.delivered = delivered !== undefined ? delivered : message.delivered;
-        const updatedMessage = await message.save();
-        res.status(200).json(updatedMessage);
-    } else {
-        res.status(404);
-        throw new Error("Message not found");
-    }
+  const { messageId } = req.params;
+  const { delivered, read } = req.body;
+
+  if (!messageId) {
+    res.status(400);
+    throw new Error("Message ID is required");
+  }
+
+  const updateData = {};
+  if (delivered !== undefined) updateData.delivered = delivered;
+  if (read !== undefined) updateData.read = read;
+
+  const updatedMessage = await Message.findByIdAndUpdate(
+    messageId,
+    updateData,
+    { new: true }
+  );
+
+  if (!updatedMessage) {
+    res.status(404);
+    throw new Error("Message not found");
+  }
+
+  // Update contact's last message timestamp
+  await Contact.findByIdAndUpdate(updatedMessage.contactId, {
+    updatedAt: new Date(),
+  });
+
+  // Emit socket event if io is available
+  if (req.app.get('io')) {
+    req.app.get('io').emit('messageStatusUpdate', {
+      messageId,
+      status: { delivered, read }
+    });
+  }
+
+  res.status(200).json(updatedMessage);
 });
 
 export { sendMessage, getMessages, deleteMessage, updateMessageStatus };
