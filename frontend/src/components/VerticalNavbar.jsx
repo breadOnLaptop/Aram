@@ -14,7 +14,7 @@ const VerticalNavbar = () => {
   const { authUser, setShowMyProfile, createChat } = useAuthStore();
   const [activePage, setActivePage] = useState("/chat");
   const [isZoomed, setIsZoomed] = useState(false); 
-
+  useEffect(()=>{},[activePage])
   
 
   const contentTransition = { duration: 0.1, delay: 0.01 }; 

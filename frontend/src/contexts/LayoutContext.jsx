@@ -2,8 +2,10 @@ import { useLocation } from "react-router-dom";
 import { useAuthStore } from "../store/useAuthStore";
 import VerticalNavbar from "../components/VerticalNavbar"; 
 import MyProfile from "@/components/modals/MyProfile";
+import { useEffect } from "react";
 
 const Layout = ({ children }) => {
+  
   const location = useLocation();
   const { authUser, showMyProfile } = useAuthStore();
 

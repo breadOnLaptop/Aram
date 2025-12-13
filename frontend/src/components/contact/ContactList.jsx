@@ -84,12 +84,6 @@ const ContactList = () => {
         <div className="w-full h-full flex flex-col border-r-1 border-muted rounded-none md:rounded-lg">
             {/* Header */}
             <div className="py-6 border-b-1 border-muted rounded-t-lg flex flex-row justify-center px-2 gap-2">
-                <button 
-                    onClick={handleGoBack} 
-                    className="p-2 rounded-full hover:bg-muted/50 transition-colors justify-center items-center flex"
-                >
-                    <ArrowBigLeft className="size-5 opacity-70" />
-                </button>
 
                 <div className="w-full dark:bg-foreground/4 bg-foreground/2 text-sm flex gap-2 p-2 rounded-lg items-center">
                     <Search className="size-4" />
