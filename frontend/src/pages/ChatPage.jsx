@@ -125,11 +125,10 @@ const ChatPage = () => {
                                 newSearchInfo.urls = Array.isArray(data.urls) ? data.urls : [];
                                 break;
                             case "content":
-                                newSearchInfo.stages.push("writing");
-                                const fixedChunk = normalizeMarkdownChunk(streamedContent, data.content);
-                                streamedContent += fixedChunk;
-
+                                const fixedChunk = normalizeMarkdownChunk(data.content);
+                                streamedContent = normalizeMarkdownChunk(streamedContent + fixedChunk);
                                 break;
+
                             case "search_error":
                                 newSearchInfo.stages.push("error");
                                 newSearchInfo.error = data.message;

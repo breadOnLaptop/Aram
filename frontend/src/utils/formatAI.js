@@ -11,40 +11,19 @@ export function formatAIResponse(text = "") {
   return text;  
 }
 
-export function normalizeMarkdownChunk(prev, chunk) {
-  let fixed = chunk;
+export function normalizeMarkdownChunk(text) {
+  if (!text) return "";
 
-  // Trim unnecessary leading spaces
-  fixed = fixed.replace(/^\s+/g, "");
+  return text
+    // normalize Windows line endings
+    .replace(/\r\n/g, "\n")
 
-  // Collapse 3+ line breaks
-  fixed = fixed.replace(/\n{3,}/g, "\n\n");
+    // collapse 3+ newlines into exactly 2 (Markdown paragraph break)
+    .replace(/\n{3,}/g, "\n\n")
 
-  // Remove excessive spaces inside lines
-  fixed = fixed.replace(/ {3,}/g, " ");
+    // trim trailing whitespace per line
+    .replace(/[ \t]+\n/g, "\n")
 
-  // If previous chunk ended with incomplete heading (e.g., "##")
-  if (/^#+\s*$/.test(prev.trim())) {
-    fixed = fixed.trimStart();
-  }
-
-  // Fix broken list continuation ("-" + "\n" + " item")
-  if (prev.trim().endsWith("-") && fixed.startsWith(" ")) {
-    fixed = fixed.trimStart();
-  }
-
-  // Fix markdown bullets that got messed up
-  fixed = fixed.replace(/^\*\s{2,}/, "- ");
-
-  // Fix heading broken across chunks ("### Req" + "uirements")
-  if (prev.endsWith("#") || prev.endsWith("##") || prev.endsWith("###")) {
-    fixed = fixed.trimStart();
-  }
-
-  // Fix broken code block (``` + ``` chunk)
-  if (prev.trim().endsWith("```") && fixed.trim().startsWith("```")) {
-    fixed = "\n" + fixed;
-  }
-
-  return fixed;
+    // avoid leading blank lines
+    .replace(/^\n+/, "");
 }

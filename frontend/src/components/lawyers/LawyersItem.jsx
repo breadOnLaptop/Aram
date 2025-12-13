@@ -26,7 +26,7 @@ const LawyersItem = ({ lawyer }) => {
   };
 
   return (
-    <div className='bg-muted/30 rounded-lg flex flex-col gap-4 px-6 py-6 border-1'>
+    <div className='h-[100%] bg-muted/30 rounded-lg flex flex-col gap-4 px-6 py-6 border-1'>
       {/* Top Section */}
       <div className='flex gap-4 items-center'>
         {/* Profile Picture */}
@@ -67,14 +67,16 @@ const LawyersItem = ({ lawyer }) => {
       </div>
 
       {/* Contact Button */}
-      <div className='flex justify-end w-full'>
-        <button 
-          onClick={handleContact}
-          className='px-4 flex gap-3 items-center text-white border border-border hover:scale-105 transition-all duration-150 py-2 bg-gradient-to-r from-emerald-500 to-green-700 rounded-xl'
-        >
-          Contact
-          <AudioWaveform className='size-4' />
-        </button>
+      <div className="relative w-full h-full">
+        <div className="absolute bottom-0 right-0">
+          <button
+            onClick={handleContact}
+            className="px-4 flex gap-3 items-center text-white border border-border hover:scale-105 transition-all duration-150 py-2 bg-gradient-to-r from-emerald-500 to-green-700 rounded-xl"
+          >
+            Contact
+            <AudioWaveform className="size-4" />
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -186,26 +186,48 @@ const MessageArea = ({ messages }) => {
           } mb-5`}
         >
           <div
-            className={`flex flex-col   max-w-[00%] md:max-w-[85%] `}
+            className={`flex flex-col max-w-[100%] md:max-w-[85%] `}
           >
             {message.role !== "user" && message.searchInfo && (
               <SearchStages searchInfo={message.searchInfo} />
             )}
 
             <div
-              className={`rounded-lg py-3 px-5 break-words whitespace-pre-wrap ${
+              className={`rounded-lg py-3 px-5 break-words ${
                 message.role === "user"
                   ? "bg-sidebar/60 rounded-br-none shadow-md"
-                  : "text-foreground rounded-bl-none shadow-md border border-border dark:shadow-white/4 leading-7 opacity-95"
+                  : "text-foreground rounded-bl-none shadow-md border border-border dark:shadow-white/4 opacity-95"
               }`}
             >
+
               {message.isLoading ? (
                 <PremiumTypingAnimation />
               ) : (
                 (message.role === "user" ? (
                   message.content
                 ) : (
-                  <ReactMarkdown>{formatAIResponse(message.content)}</ReactMarkdown>
+                  <ReactMarkdown
+                    components={{
+                      p: ({ node, ...props }) => (
+                        <p className="mb-3 last:mb-0 leading-relaxed" {...props} />
+                      ),
+                      ul: ({ node, ...props }) => (
+                        <ul className="list-disc pl-5 mb-3 space-y-1" {...props} />
+                      ),
+                      ol: ({ node, ...props }) => (
+                        <ol className="list-decimal pl-5 mb-3 space-y-1" {...props} />
+                      ),
+                      h2: ({ node, ...props }) => (
+                        <h2 className="text-lg font-semibold mt-4 mb-2" {...props} />
+                      ),
+                      h3: ({ node, ...props }) => (
+                        <h3 className="text-base font-semibold mt-3 mb-1" {...props} />
+                      ),
+                    }}
+                  >
+                    {message.content}
+                  </ReactMarkdown>
+
 
                 )) || (
                   <span className="text-muted-foreground text-xs italic">

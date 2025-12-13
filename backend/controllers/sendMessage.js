@@ -8,10 +8,8 @@ import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { MemorySaver } from "@langchain/langgraph";
 
-// 🔥 Global agent instance
 let agent = null;
 
-// Initialize LangGraph + Gemini once
 async function ensureAgent() {
   if (agent) return agent;
 
@@ -25,7 +23,7 @@ async function ensureAgent() {
 
   agent = createReactAgent({
     llm,
-    tools: [], // You want search events, but no actual tools
+    tools: [], 
     messageModifier: `
 You are Aram AI — a structured, concise, and precise legal assistant from Indian Law.
 
@@ -57,7 +55,6 @@ TONE:
   return agent;
 }
 
-// 🔥 MAIN STREAM FUNCTION
 export const sendMessage = async (req, res) => {
   try {
     const { chatId, messageId, queryreceived, checkpoint_id } = req.query;
@@ -65,7 +62,6 @@ export const sendMessage = async (req, res) => {
 
     const graph = await ensureAgent();
 
-    // 🟢 SSE SETUP
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
@@ -76,7 +72,6 @@ export const sendMessage = async (req, res) => {
       res.flush?.();
     };
 
-    // Prepare conversation thread
     const threadId = checkpoint_id || crypto.randomUUID();
     const isNewThread = !checkpoint_id;
 
@@ -86,7 +81,6 @@ export const sendMessage = async (req, res) => {
 
     await send({ type: "thinking" });
 
-    // 🟢 Track all search metadata to save to DB
     let searchInfo = {
       stages: [],
       query: "",
@@ -98,10 +92,8 @@ export const sendMessage = async (req, res) => {
       error: null
     };
 
-    // 🟢 Track the final AI response
     let assistantResponse = "";
 
-    // 🟢 STREAM EVENTS
     const eventStream = await graph.streamEvents(
       {
         messages: [
@@ -120,13 +112,11 @@ export const sendMessage = async (req, res) => {
     for await (const event of eventStream) {
       const type = event.event;
 
-      console.log("🔵 Event:", event.data.chunk);
       if (
         type === "on_chat_model_stream" &&
         event.data?.chunk?.content?.toLowerCase().includes("http")
       ) {
         const urls = [...event.data.chunk.content.matchAll(/https?:\/\/\S+/g)].map(m => m[0]);
-
         if (urls.length) {
           searchInfo.stages.push("searching");
           searchInfo.stages.push("reading");
@@ -139,24 +129,18 @@ export const sendMessage = async (req, res) => {
       // 🔹 Content chunks
       if (type === "on_chat_model_stream") {
         const chunk = event.data?.chunk?.content;
-        if (chunk?.trim()) {
-          const clean = chunk.replace(/\s+$/g, "");
-          assistantResponse += clean;
+        assistantResponse += chunk;
 
-          searchInfo.stages.push("writing");
-          await send({ type: "content", content: clean });
-        }
+        searchInfo.stages.push("writing");
+        await send({ type: "content", content: chunk });
       }
     }
 
-    // 🔹 END OF STREAM
     await send({ type: "end" });
     res.end();
 
-    // ➕ Deduplicate stages
     searchInfo.stages = Array.from(new Set(searchInfo.stages));
 
-    // 🟢 SAVE MESSAGES IN DB
     setImmediate(async () => {
       try {
         await Chat.findByIdAndUpdate(
