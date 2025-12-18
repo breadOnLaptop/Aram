@@ -7,277 +7,180 @@ import NoChatContainer from "./NoChatContainer";
 import { socketManager } from "../../utils/SocketManager";
 
 const ChatContainer = () => {
-    const {
-        currentContact,
-        getContactMessages,
-        sendMessage,
-        authUser,
-        deleteMessage,
-        updateMessageStatus,
-        updateLastMessage,
-        updateContactLastMessage,
-        emitSocketEvent,
-        socketConnected,
-        onlineUsers,
-        getContacts,
-        setContacts
-    } = useAuthStore();
+  const {
+    currentContact,
+    getContactMessages,
+    sendMessage,
+    authUser,
+    deleteMessage,
+    updateMessageStatus,
+    updateLastMessage,
+    updateContactLastMessage,
+    emitSocketEvent,
+    socketConnected,
+    onlineUsers,
+    getContacts,
+  } = useAuthStore();
 
-    const [messages, setMessages] = useState([]);
-    const [selectedMessageId, setSelectedMessageId] = useState(null);
-    const [isTyping, setIsTyping] = useState(false);
-    const messageAreaRef = useRef(null);
+  const [messages, setMessages] = useState([]);
+  const [selectedMessageId, setSelectedMessageId] = useState(null);
+  const [isTyping, setIsTyping] = useState(false);
+  const messageAreaRef = useRef(null);
 
-    // Check if current contact is online
-    const isContactOnline = currentContact?.contactUser?._id &&
-        onlineUsers.includes(currentContact.contactUser._id);
+  const isContactOnline =
+    currentContact?.contactUser?._id &&
+    onlineUsers.includes(currentContact.contactUser._id);
 
-    // Fetch messages when contact changes
-    useEffect(() => {
-        const fetchMessages = async () => {
-            if (!currentContact?._id) return;
-            const data = await getContactMessages(currentContact._id);
-            setMessages(data);
-        };
-        fetchMessages();
-    }, [currentContact?._id]);
+  useEffect(() => {
+    if (!currentContact?._id) return;
+    getContactMessages(currentContact._id).then(setMessages);
+  }, [currentContact?._id]);
 
-    // Listen for real-time messages
-    useEffect(() => {
-        if (!socketConnected) return;
+  useEffect(() => {
+    if (!socketConnected) return;
 
-        const handleReceiveMessage = async (msg) => {
-            console.log("📩 ChatContainer received message:", msg);
+    const onReceive = async (msg) => {
+      if (msg.contactId === currentContact?._id) {
+        setMessages((prev) => [...prev, msg]);
 
-            // Only add if it's for current contact
-            if (msg.contactId === currentContact?._id) {
-                setMessages((prev) => [...prev, msg]);
-
-                // Mark as read and delivered if it's from the other person
-                if (msg.senderId !== authUser._id) {
-                    await updateMessageStatus(msg._id, { delivered: true, read: true });
-
-                    // Emit socket event for status update
-                    socketManager?.emit("messageStatusUpdate", {
-                        messageId: msg._id,
-                        status: { delivered: true, read: true }
-                    });
-                }
-            }
-
-            // Always refresh contacts to update last message
-            if (authUser?._id) {
-                await getContacts(authUser._id);
-            }
-        };
-
-        const handleUserTyping = ({ contactId, isTyping }) => {
-            if (contactId === authUser._id && currentContact?.contactUser._id) {
-                setIsTyping(isTyping);
-            }
-        };
-
-        const handleMessageStatusUpdate = ({ messageId, status }) => {
-            // Update message status in local state
-            setMessages(prev => prev.map(msg =>
-                msg._id === messageId ? { ...msg, ...status } : msg
-            ));
-        };
-
-        // Subscribe to socket events
-        socketManager?.on("receiveMessage", handleReceiveMessage);
-        socketManager?.on("userTyping", handleUserTyping);
-        socketManager?.on("messageStatusUpdate", handleMessageStatusUpdate);
-
-        return () => {
-            socketManager?.off("receiveMessage", handleReceiveMessage);
-            socketManager?.off("userTyping", handleUserTyping);
-            socketManager?.off("messageStatusUpdate", handleMessageStatusUpdate);
-        };
-    }, [socketConnected, currentContact, authUser._id]);
-
-    // Mark messages as read when viewing - FIXED VERSION
-    useEffect(() => {
-        if (!messages.length || !currentContact?._id) return;
-
-        const markUnreadMessages = async () => {
-            console.log(messages)
-
-            // Collect all unread messages from the other person
-            for (let i = messages.length - 1; i >= 0; i--) {
-                if (messages[i].read === true) break;
-                if (messages[i].senderId !== authUser._id) {
-                    console.log(messages[i]);
-                    await updateMessageStatus(messages[i]?._id, {
-                        delivered: true,
-                        read: true
-                    });
-
-                    // Emit socket event
-                    socketManager?.emit("messageStatusUpdate", {
-                        messageId: msg?._id,
-                        status: { delivered: true, read: true }
-                    });
-                }
-            }
-
-            // If there are unread messages, mark them as read
-
-            await getContacts(authUser._id);
-
-        };
-
-        markUnreadMessages();
-    }, [messages, currentContact?._id]);
-
-    // Auto scroll to bottom
-    useEffect(() => {
-        if (messageAreaRef.current) {
-            messageAreaRef.current.scrollTop = messageAreaRef.current.scrollHeight;
+        if (msg.senderId !== authUser._id) {
+          await updateMessageStatus(msg._id, { delivered: true, read: true });
+          socketManager.emit("messageStatusUpdate", {
+            messageId: msg._id,
+            status: { delivered: true, read: true },
+          });
         }
-    }, [messages]);
+      }
 
-    const deleteMsg = async () => {
-        if (!selectedMessageId) return;
-
-        await deleteMessage(selectedMessageId);
-        setMessages((prev) => prev.filter((msg) => msg._id !== selectedMessageId));
-        setSelectedMessageId(null);
+      if (authUser?._id) {
+        await getContacts(authUser._id);
+      }
     };
 
-    const send = async (messageContent) => {
-        if (!messageContent.trim()) return;
+    socketManager.on("receiveMessage", onReceive);
+    socketManager.on("userTyping", ({ isTyping }) => setIsTyping(isTyping));
 
-        const messageData = {
-            contactId: currentContact._id,
-            content: messageContent.trim(),
-            senderId: authUser._id,
-            receiverId: currentContact.contactUser._id,
-        };
-
-        try {
-            // Send to backend
-            const sentMessage = await sendMessage(messageData);
-
-            // Update last message in contact
-            await updateLastMessage(currentContact._id, sentMessage._id);
-            updateContactLastMessage(currentContact._id, sentMessage);
-
-            // Add to local state
-
-            // Refresh contacts
-            if (authUser?._id) {
-                await getContacts(authUser._id);
-            }
-        } catch (error) {
-            console.error("Failed to send message:", error);
-            alert("Failed to send message. Please try again.");
-        }
+    return () => {
+      socketManager.off("receiveMessage", onReceive);
+      socketManager.off("userTyping");
     };
+  }, [socketConnected, currentContact, authUser]);
 
-    // Handle typing indicator
-    const handleTyping = (isCurrentlyTyping) => {
-        if (socketConnected && currentContact) {
-            emitSocketEvent("typing", {
-                contactId: currentContact.contactUser._id,
-                isTyping: isCurrentlyTyping
-            });
-        }
-    };
+  useEffect(() => {
+    if (messageAreaRef.current) {
+      messageAreaRef.current.scrollTop =
+        messageAreaRef.current.scrollHeight;
+    }
+  }, [messages]);
 
-    // Get last seen text
-    const getLastSeenText = () => {
-        if (isContactOnline) return 'Online';
-        if (currentContact?.updatedAt) {
-            const lastSeen = new Date(currentContact.updatedAt);
-            const now = new Date();
-            const diffInMs = now - lastSeen;
-            const diffInMins = Math.floor(diffInMs / 60000);
+  const send = async (text, files = []) => {
+    if (!text.trim() && !files.length) return;
 
-            if (diffInMins < 1) return 'Just now';
-            if (diffInMins < 60) return `${diffInMins}m ago`;
+    const sent = await sendMessage({
+      contactId: currentContact._id,
+      senderId: authUser._id,
+      receiverId: currentContact.contactUser._id,
+      text,
+      files,
+    });
 
-            const diffInHours = Math.floor(diffInMins / 60);
-            if (diffInHours < 24) return `${diffInHours}h ago`;
+    await updateLastMessage(currentContact._id, sent._id);
+    updateContactLastMessage(currentContact._id, sent);
+  };
 
-            return lastSeen.toLocaleDateString();
-        }
-        return 'Offline';
-    };
+  const handleTyping = (typing) => {
+    emitSocketEvent("typing", {
+      contactId: currentContact.contactUser._id,
+      isTyping: typing,
+    });
+  };
 
-    if (!currentContact) return <NoChatContainer />;
+  if (!currentContact) return <NoChatContainer />;
 
-    return (
-        <div className="flex flex-col w-2/3">
-            {/* Header */}
-            <div className="py-3 px-4 flex justify-between items-center border-b-1 border-overlay">
-                <div className="flex gap-3 items-center">
-                    <div className="relative">
-                        <img
-                            src={currentContact?.contactUser?.profilePic || "/images/user.jpg"}
-                            className="size-12 rounded-xl object-cover"
-                            alt="User"
-                        />
-                        {/* Online indicator */}
-                        <div className={`size-2.5 rounded-full absolute right-0 bottom-0 border-2 border-background ${isContactOnline ? 'bg-green-500' : 'bg-gray-400'
-                            }`}></div>
-                    </div>
+  return (
+    <div className="flex flex-col w-full h-full bg-background rounded-xl border border-border shadow-sm overflow-hidden">
 
-                    <div className="flex flex-col">
-                        <div className="font-semibold text-sm sm:text-base">
-                            {currentContact?.contactUser.firstName}{" "}
-                            {currentContact?.contactUser.lastName}
-                        </div>
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-background/90 backdrop-blur sticky top-0 z-10">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <img
+              src={currentContact.contactUser.profilePic || "/images/user.jpg"}
+              className="size-11 rounded-full object-cover"
+              alt="user"
+            />
+            <span
+              className={`absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-background ${
+                isContactOnline ? "bg-emerald-500" : "bg-gray-400"
+              }`}
+            />
+          </div>
 
-                        <div className="text-[10px] text-foreground/70">
-                            {isTyping ? (
-                                <span className="text-emerald-500">typing...</span>
-                            ) : (
-                                <span className={isContactOnline ? 'text-emerald-500 font-medium' : ''}>
-                                    {getLastSeenText()}
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Icons */}
-                <div className="flex gap-4 items-center">
-                    <Trash2
-                        className={`size-5 cursor-pointer ${selectedMessageId ? "visible" : "invisible"
-                            }`}
-                        onClick={deleteMsg}
-                    />
-                    <Info className="size-5 cursor-pointer" />
-                    <MoreHorizontal className="size-5 cursor-pointer" />
-                </div>
-            </div>
-
-            {/* Messages */}
-            <div
-                ref={messageAreaRef}
-                className="message-area flex-1 overflow-y-auto flex flex-col p-4 gap-2"
-            >
-                {messages.length === 0 ? (
-                    <p className="text-center text-sm opacity-70 mt-4">
-                        No messages yet. Start the conversation!
-                    </p>
-                ) : (
-                    messages.map((msg) => (
-                        <MessageBubble
-                            key={msg._id}
-                            message={msg}
-                            isOwnMessage={msg.senderId === authUser._id}
-                            setSelectedMessageId={setSelectedMessageId}
-                            selectedMessageId={selectedMessageId}
-                        />
-                    ))
-                )}
-            </div>
-
-            <InputMessage onSubmit={send} onTyping={handleTyping} />
+          <div className="flex flex-col">
+            <span className="font-semibold text-sm">
+              {currentContact.contactUser.firstName}{" "}
+              {currentContact.contactUser.lastName}
+            </span>
+            <span className="text-[11px] text-foreground/60">
+              {isTyping ? (
+                <span className="text-emerald-500">typing…</span>
+              ) : isContactOnline ? (
+                "Online"
+              ) : (
+                "Offline"
+              )}
+            </span>
+          </div>
         </div>
-    );
+
+        <div className="flex items-center gap-4 text-muted-foreground">
+          <Trash2
+            className={`size-5 cursor-pointer ${
+              selectedMessageId ? "opacity-100" : "opacity-0"
+            }`}
+            onClick={() => {
+              deleteMessage(selectedMessageId);
+              setMessages((p) =>
+                p.filter((m) => m._id !== selectedMessageId)
+              );
+              setSelectedMessageId(null);
+            }}
+          />
+          <Info className="size-5 cursor-pointer" />
+          <MoreHorizontal className="size-5 cursor-pointer" />
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div
+        ref={messageAreaRef}
+        className="flex-1 overflow-y-auto px-5 py-6 space-y-3 
+                   bg-gradient-to-b from-background via-muted/30 to-muted/60
+                   scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent w-full"
+      >
+        {messages.length === 0 ? (
+          <div className="flex h-full items-center justify-center text-sm text-foreground/60">
+            No messages yet. Start the conversation.
+          </div>
+        ) : (
+          messages.map((msg) => (
+            <MessageBubble
+              key={msg._id}
+              message={msg}
+              isOwnMessage={msg.senderId === authUser._id}
+              selectedMessageId={selectedMessageId}
+              setSelectedMessageId={setSelectedMessageId}
+            />
+          ))
+        )}
+      </div>
+
+      {/* Input */}
+      <div className="border-t border-border bg-background/95 backdrop-blur">
+        <InputMessage onSubmit={send} onTyping={handleTyping} />
+      </div>
+    </div>
+  );
 };
 
 export default ChatContainer;

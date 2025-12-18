@@ -2,41 +2,51 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 
-// Configure storage
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
+  destination: (req, file, cb) => {
     const uploadDir = "uploads";
 
-    // 🟢 Use fs to check & create folder if it doesn’t exist
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
 
     cb(null, uploadDir);
   },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, uniqueSuffix + path.extname(file.originalname)); // Keep original extension    
+
+  filename: (req, file, cb) => {
+    const uniqueSuffix =
+      Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
   },
 });
 
-// File filter (optional: restrict to images only)
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png|gif/;
-  const ext = path.extname(file.originalname).toLowerCase();
-  if (allowedTypes.test(ext)) {
+  // Restrict ONLY profilePic to images
+  if (file.fieldname === "profilePic") {
+    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    const ext = path.extname(file.originalname).toLowerCase();
+    const mime = file.mimetype.toLowerCase();
 
-    cb(null, true);
-  } else {
-    cb(new Error("Only images are allowed"), false);
+    if (
+      allowedTypes.test(ext) &&
+      allowedTypes.test(mime)
+    ) {
+      return cb(null, true);
+    }
+
+    return cb(new Error("Profile picture must be an image"), false);
   }
+
+  // Allow all other files (chat attachments, docs, etc.)
+  cb(null, true);
 };
 
-// Multer config
 const upload = multer({
-  storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: fileFilter,
+  storage,
+  limits: {
+    fileSize: 20 * 1024 * 1024, // 20MB (adjust if needed)
+  },
+  fileFilter,
 });
 
 export default upload;

@@ -193,7 +193,6 @@ export const updateUserProfile = async (req, res) => {
         await cloudinary.uploader.destroy(publicId);
       }
 
-      // ✅ Upload new file to Cloudinary
       const cloudinaryResponse = await cloudinary.uploader.upload(file.path, {
         folder: "users/profilePics",
       });
@@ -206,7 +205,6 @@ export const updateUserProfile = async (req, res) => {
       profilePicUrl = cloudinaryResponse.secure_url;
     }
 
-    // Update user
     const updatedUser = await User.findByIdAndUpdate(
       req.user.userId,
       { ...updates, profilePic: profilePicUrl },
