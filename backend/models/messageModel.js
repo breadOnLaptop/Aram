@@ -30,10 +30,13 @@ const messageSchema = new mongoose.Schema(
       default: false,
     },
     fileUrl: [
-      {
-        type: String,
-      }
-    ],
+        {
+          url: { type: String, required: true },
+          publicId: { type: String },
+          fileType: { type: String },
+          originalName: { type: String },
+        }
+      ]
   },
   { timestamps: true }
 );

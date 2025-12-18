@@ -83,7 +83,7 @@ class SocketManager {
   emit(event, data) {
     if (this.socket?.connected) {
       this.socket.emit(event, data);
-      console.log(`📤 Emitted "${event}":`, data);
+      // console.log(`📤 Emitted "${event}":`, data);
     } else {
       console.warn(`⚠️ Tried to emit "${event}" but socket is not connected.`);
     }
@@ -161,25 +161,25 @@ class SocketManager {
     if (!this.socket) return;
 
     // Log received messages
-    this.socket.on("receiveMessage", (message) => {
-      console.log("📩 Socket received message:", message);
-    });
+    // this.socket.on("receiveMessage", (message) => {
+    //   console.log("📩 Socket received message:", message);
+    // });
 
-    this.socket.on("userTyping", ({ contactId, isTyping }) => {
-      console.log(`💬 ${contactId} is ${isTyping ? "typing..." : "not typing"}`);
-    });
+    // this.socket.on("userTyping", ({ contactId, isTyping }) => {
+    //   console.log(`💬 ${contactId} is ${isTyping ? "typing..." : "not typing"}`);
+    // });
 
-    this.socket.on("userOnline", (userId) => {
-      console.log(`🟢 ${userId} is now online`);
-    });
+    // this.socket.on("userOnline", (userId) => {
+    //   console.log(`🟢 ${userId} is now online`);
+    // });
 
-    this.socket.on("userOffline", (userId) => {
-      console.log(`🔴 ${userId} went offline`);
-    });
+    // this.socket.on("userOffline", (userId) => {
+    //   console.log(`🔴 ${userId} went offline`);
+    // });
 
-    this.socket.on("messageStatusUpdate", ({ messageId, status }) => {
-      console.log(`✓ Message ${messageId} status updated:`, status);
-    });
+    // this.socket.on("messageStatusUpdate", ({ messageId, status }) => {
+    //   console.log(`✓ Message ${messageId} status updated:`, status);
+    // });
   }
 }
 

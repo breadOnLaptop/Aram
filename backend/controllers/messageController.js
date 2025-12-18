@@ -1,39 +1,56 @@
+import fs from "fs";
+import asyncHandler from "express-async-handler";
+import cloudinary from "../lib/cloudinary.js";
 import Message from "../models/messageModel.js";
 import Contact from "../models/contactModel.js";
-import asyncHandler from "express-async-handler";
 
-// ======================================================
-// 📤 Send Message
-// ======================================================
 const sendMessage = asyncHandler(async (req, res) => {
-  const { contactId, senderId, receiverId, content, fileUrl } = req.body;
-
+  const { contactId, senderId, receiverId, content } = req.body;
+  
+  console.log("🚀 Sending message with files:", req.files);
   if (!contactId || !senderId || !receiverId) {
     res.status(400);
-    throw new Error("Contact ID, Sender ID, and Receiver ID are required");
+    throw new Error("Contact ID, sender ID, and receiver ID are required");
   }
 
+  const uploadedFiles = [];
+
+  if (req.files?.files?.length) {
+    for (const file of req.files.files) {
+      const result = await cloudinary.uploader.upload(file.path, {
+        folder: "chat/uploads",
+        resource_type: "auto",
+      });
+
+      uploadedFiles.push({
+        url: result.secure_url,
+        publicId: result.public_id,
+        fileType: result.resource_type,
+        originalName: file.originalname,
+      });
+
+      fs.unlink(file.path, () => {});
+    }
+  }
+  console.log("🚀 Sending message with files:", uploadedFiles);
   const newMessage = await Message.create({
     contactId,
     senderId,
     receiverId,
     content: content || "",
-    fileUrl: fileUrl || [],
+    fileUrl: uploadedFiles,
     delivered: false,
     read: false,
   });
 
-  // Update contact's last message
   await Contact.findByIdAndUpdate(contactId, {
     lastMessage: newMessage._id,
+    updatedAt: new Date(),
   });
 
   res.status(201).json(newMessage);
 });
 
-// ======================================================
-// 📩 Get Messages for a Contact
-// ======================================================
 const getMessages = asyncHandler(async (req, res) => {
   const { contactId } = req.params;
 
@@ -47,9 +64,6 @@ const getMessages = asyncHandler(async (req, res) => {
   res.status(200).json(messages);
 });
 
-// ======================================================
-// 🗑️ Delete Message
-// ======================================================
 const deleteMessage = asyncHandler(async (req, res) => {
   const { messageId } = req.params;
 
@@ -68,9 +82,6 @@ const deleteMessage = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "Message deleted successfully" });
 });
 
-// ======================================================
-// ✓ Update Message Status (Read/Delivered)
-// ======================================================
 const updateMessageStatus = asyncHandler(async (req, res) => {
   const { messageId } = req.params;
   const { delivered, read } = req.body;
@@ -95,20 +106,25 @@ const updateMessageStatus = asyncHandler(async (req, res) => {
     throw new Error("Message not found");
   }
 
-  // Update contact's last message timestamp
   await Contact.findByIdAndUpdate(updatedMessage.contactId, {
     updatedAt: new Date(),
   });
 
-  // Emit socket event if io is available
-  if (req.app.get('io')) {
-    req.app.get('io').emit('messageStatusUpdate', {
+  const io = req.app.get("io");
+  if (io) {
+    io.emit("messageStatusUpdate", {
       messageId,
-      status: { delivered, read }
+      delivered,
+      read,
     });
   }
 
   res.status(200).json(updatedMessage);
 });
 
-export { sendMessage, getMessages, deleteMessage, updateMessageStatus };
+export {
+  sendMessage,
+  getMessages,
+  deleteMessage,
+  updateMessageStatus,
+};

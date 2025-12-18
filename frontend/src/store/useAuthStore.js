@@ -57,14 +57,14 @@ export const useAuthStore = create((set, get) => ({
           })),
 
         receiveMessage: async (msg) => {
-          console.log("📩 New message received:", msg);
+          // console.log("📩 New message received:", msg);
           // Refresh contacts to update last message
           if (get().authUser?._id) {
             await get().getContacts(get().authUser._id);
           }
         },
         userTyping: ({ contactId, isTyping }) => {
-          console.log(`💬 ${contactId} is ${isTyping ? "typing..." : "idle"}`);
+          // console.log(`💬 ${contactId} is ${isTyping ? "typing..." : "idle"}`);
         },
       },
     });
@@ -187,16 +187,30 @@ export const useAuthStore = create((set, get) => ({
     if (!token) throw new Error("Not authenticated");
 
     const headers = {
-      "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
-      ...(options.headers || {}),
     };
 
-    const res = await fetch(url, { ...options, headers });
+    // Detect JSON body
+    if (
+      options.body &&
+      !(options.body instanceof FormData)
+    ) {
+      headers["Content-Type"] = "application/json";
+    }
+
+    const res = await fetch(url, {
+      ...options,
+      headers: {
+        ...headers,
+        ...(options.headers || {}),
+      },
+    });
+
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.message || "Request failed");
     return data;
   },
+
 
   // ===========================
   // 💬 MESSAGES
@@ -206,17 +220,30 @@ export const useAuthStore = create((set, get) => ({
     return res;
   },
 
-  sendMessage: async (messageData) => {
-    const message = await get().fetchWithAuth(`${BACKEND_URL}/api/messages/send`, {
-      method: "POST",
-      body: JSON.stringify(messageData),
+  sendMessage: async ({ text, files, contactId, senderId, receiverId }) => {
+    const formData = new FormData();
+
+    formData.append("contactId", contactId);
+    formData.append("senderId", senderId);
+    formData.append("receiverId", receiverId);
+    formData.append("content", text || "");
+
+    files?.forEach((file) => {
+      formData.append("files", file);
     });
-    
-    // Emit via socket for real-time delivery
+
+    const message = await get().fetchWithAuth(
+      `${BACKEND_URL}/api/messages/send`,
+      {
+        method: "POST",
+        body: formData,
+      }
+    );
+
     socketManager.sendMessage(message);
-    
     return message;
   },
+
 
   updateMessageStatus: async (messageId, statusData) => {
     return await get().fetchWithAuth(`${BACKEND_URL}/api/messages/${messageId}/status`, {
