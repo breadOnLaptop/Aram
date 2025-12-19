@@ -635,7 +635,9 @@ MIT License - See [LICENSE](LICENSE) file for details.
 
 ## 👥 Team
 
-- **Sethukumar M** - Full-Stack Development, AI Integration
+- **Sethukumar M** - Full-Stack Developer, AI Integration
+- **Peeyush Maurya** - Full-Stack Developer, AI Assist, Feature Assist
+- **Suraj Yadav** - Full-Stack Developer, Faature Assist
 
 ---
 

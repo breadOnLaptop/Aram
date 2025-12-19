@@ -11,80 +11,96 @@ const __dirname = path.dirname(__filename);
 
 export const registerUser = async (req, res) => {
   try {
-    const { firstName, lastName, email, password, mobile, age, role, latitude, longitude } = req.body;
+    const {
+      firstName,
+      lastName,
+      email,
+      password,
+      mobile,
+      age,
+      role,
+      latitude,
+      longitude,
+    } = req.body;
+
     const file = req.file;
-    console.log("Received file:", file);
-    const profilePic = file ? file.path : null;
-    let profilePicUrl = null;
-    if (profilePic) {
-      const cloudinaryResponse = await cloudinary.uploader.upload(file.path, {
-        folder: "users/profilePics",
-      });
-      profilePicUrl = cloudinaryResponse.secure_url;
-      console.log(fs.existsSync(file.path));
-      fs.unlink(file.path, (err) => {
-        if (err) console.log("Error deleting temp file:", err);
+
+    // Password validation
+    const passwordRegex =
+      /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+
+    if (!password || !passwordRegex.test(password)) {
+      return res.status(400).json({
+        message:
+          "Password must be at least 8 characters and include a letter, number, and special character",
       });
     }
+
+    // Check email
     let existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(200).json({ok: false, email: 'Email already exists' });
+      return res.status(409).json({ message: "Email already exists" });
     }
+
+    // Check mobile
     existingUser = await User.findOne({ mobile });
     if (existingUser) {
-      return res.status(200).json({ok:false, mobile: 'Mobile Number already used' });
+      return res.status(409).json({ message: "Mobile number already used" });
     }
-    // Hash password
+
+    // Handle profile picture
+    let profilePicUrl = null;
+    if (file) {
+      const upload = await cloudinary.uploader.upload(file.path, {
+        folder: "users/profilePics",
+      });
+      profilePicUrl = upload.secure_url;
+      fs.unlink(file.path, () => {});
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
-    // Create new user
-    if (role === "user") {
-      const newUser = new User({
-        firstName,
-        lastName,
-        mobile,
-        age,
-        profilePic: profilePicUrl,
-        email,
-        password: hashedPassword,
-        role,
-        chats: [],
-        location: {
-          type: "Point",
-          coordinates: longitude && latitude ? [parseFloat(longitude), parseFloat(latitude)] : [0, 0]
-        }
-      });
-      await newUser.save();
-      res.status(201).json({ message: 'User registered successfully' });
-      console.log("New user created:", newUser);
-    } else {
-      const newUser = new User({
-        firstName,
-        lastName,
-        mobile,
-        age,
-        profilePic: profilePicUrl,
-        email,
-        password: hashedPassword,
-        role,
-        chats: [],
-        field: [],
-        description: "",
-        experience: 0,
-        rating: {
-          count: 0,
-          reviews: [],   // match schema field
-        },
-        location: {
-          type: "Point",
-          coordinates: longitude && latitude ? [parseFloat(longitude), parseFloat(latitude)] : [0, 0]
-        }
-      });
-      await newUser.save();
-      res.status(201).json({ message: 'User registered successfully' });
-    }
+
+    const baseUserData = {
+      firstName,
+      lastName,
+      mobile,
+      age,
+      profilePic: profilePicUrl,
+      email,
+      password: hashedPassword,
+      role,
+      chats: [],
+      location: {
+        type: "Point",
+        coordinates:
+          longitude && latitude
+            ? [parseFloat(longitude), parseFloat(latitude)]
+            : [0, 0],
+      },
+    };
+
+    const newUser =
+      role === "user"
+        ? new User(baseUserData)
+        : new User({
+            ...baseUserData,
+            field: [],
+            description: "",
+            experience: 0,
+            rating: { count: 0, reviews: [] },
+          });
+
+    await newUser.save();
+
+    return res.status(201).json({
+      message: "User registered successfully",
+    });
   } catch (error) {
-    console.log(error.message);
-    res.status(500).json({ message: `Server error`, error: error.message });
+    console.error(error);
+    return res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
 
@@ -258,5 +274,3 @@ export const findLawyers = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
-
